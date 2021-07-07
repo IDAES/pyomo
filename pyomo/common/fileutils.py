@@ -336,9 +336,9 @@ def find_library(libname, cwd=True, include_PATH=True, pathlist=None):
         return lib
     # Search 3: use ctypes.util.find_library (which expects 'lib' and
     # extension to be removed from the name)
-    if libname.startswith('lib') and _system() != 'windows':
-        libname = libname[3:]
     libname_base, ext = os.path.splitext(os.path.basename(libname))
+    if libname_base.startswith('lib') and _system() != 'windows':
+        libname_base = libname_base[3:]
     if ext.lower().startswith(('.so','.dll','.dylib')):
         return ctypes.util.find_library(libname_base)
     else:
@@ -424,8 +424,12 @@ def import_file(path, clear_cache=False, infer_package=True):
             module_name = mod + '.' + module_name
     if clear_cache and module_name in sys.modules:
         del sys.modules[module_name]
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    module = spec.loader.load_module()
+    sys.path.insert(0, module_dir)
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        module = spec.loader.load_module()
+    finally:
+        sys.path.pop(0)
     return module
 
 

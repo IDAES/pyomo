@@ -32,7 +32,7 @@ __all__ = ['PyomoNLP']
 
 # TODO: There are todos in the code below
 class PyomoNLP(AslNLP):
-    def __init__(self, pyomo_model):
+    def __init__(self, pyomo_model, nl_file_options=None):
         """
         Pyomo nonlinear program interface
 
@@ -65,12 +65,15 @@ class PyomoNLP(AslNLP):
                     'The ASL interface and PyomoNLP in PyNumero currently '
                     'only support single objective problems. Deactivate '
                     'any extra objectives you may have, or add a dummy '
-                    'objective (f(x)=0) if you have a square problem.')
+                    'objective (f(x)=0) if you have a square problem '
+                    '(found %s objectives).' % (len(objectives),))
             self._objective = objectives[0]
 
             # write the nl file for the Pyomo model and get the symbolMap
+            if nl_file_options is None:
+                nl_file_options = dict()
             fname, symbolMap = WriterFactory('nl')(
-                pyomo_model, nl_file, lambda x:True, {})
+                pyomo_model, nl_file, lambda x:True, nl_file_options)
 
             # create component maps from vardata to idx and condata to idx
             self._vardata_to_idx = vdidx = ComponentMap()

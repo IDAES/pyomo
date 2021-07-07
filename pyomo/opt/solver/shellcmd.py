@@ -15,7 +15,7 @@ import sys
 import time
 import logging
 import subprocess
-from six import StringIO
+from io import StringIO
 
 from pyomo.common.errors import ApplicationError
 from pyomo.common.collections import Bunch
@@ -320,6 +320,8 @@ class SystemCallSolver(OptSolver):
                     timeout=timeout,
                     universal_newlines=True,
                 )
+                t.STDOUT.flush()
+                t.STDERR.flush()
 
             rc = results.returncode
             log = ostreams[0].getvalue()

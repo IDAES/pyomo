@@ -15,7 +15,8 @@ from pyomo.common.dependencies import numpy as np, numpy_available
 from pyomo.common.log import LoggingIntercept
 from pyomo.common.errors import InfeasibleConstraintException
 from pyomo.core.expr.numeric_expr import (ProductExpression,
-                                          UnaryFunctionExpression)
+                                          UnaryFunctionExpression,
+                                          LinearExpression)
 import math
 from io import StringIO
 
@@ -236,10 +237,9 @@ class TestFBBT(unittest.TestCase):
                     yu = np.inf
                 else:
                     yu = m.y.ub
-                for _x in x:
-                    _y = np.exp(np.log(abs(z)) / _x)
-                    self.assertTrue(np.all(yl <= _y))
-                    self.assertTrue(np.all(yu >= _y))
+                y = np.exp(np.split(np.log(np.abs(z)), len(z)) / x)
+                self.assertTrue(np.all(yl <= y))
+                self.assertTrue(np.all(yu >= y))
 
     def test_x_sq(self):
         m = pyo.ConcreteModel()
@@ -811,3 +811,23 @@ class TestFBBT(unittest.TestCase):
         self.assertAlmostEqual(m.x.ub, xu)
         self.assertAlmostEqual(m.y.lb, yl)
         self.assertAlmostEqual(m.y.ub, yu)
+
+    def test_negative_power(self):
+        m = pyo.ConcreteModel()
+        m.x = pyo.Var()
+        m.y = pyo.Var()
+        e = (m.x**2 + m.y**2)**(-0.5)
+        lb, ub = compute_bounds_on_expr(e)
+        self.assertAlmostEqual(lb, 0)
+        self.assertIsNone(ub)
+
+    def test_linear_expression(self):
+        m = pyo.ConcreteModel()
+        m.x = pyo.Var(bounds=(1, 2))
+        m.y = pyo.Var()
+        m.p = pyo.Param(initialize=3, mutable=True)
+        e = LinearExpression(constant=1, linear_coefs=[1, m.p - 1], linear_vars=[m.x, m.y])
+        m.c = pyo.Constraint(expr=e == 0)
+        fbbt(m.c)
+        self.assertAlmostEqual(m.y.lb, -1.5)
+        self.assertAlmostEqual(m.y.ub, -1)
