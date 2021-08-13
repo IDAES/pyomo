@@ -14,7 +14,8 @@ import importlib
 import logging
 import sys
 
-from pyomo.common.deprecation import deprecated, deprecation_warning
+from .deprecation import deprecated, deprecation_warning
+from . import numeric_types
 
 class DeferredImportError(ImportError):
     pass
@@ -65,18 +66,18 @@ class ModuleUnavailable(object):
         if msg is None:
             msg = _err
         if _imp:
-            if not msg:
+            if not msg or not str(msg):
                 msg = (
                     "The %s module (an optional Pyomo dependency) " \
                     "failed to import: %s" % (self.__name__, _imp)
                 )
             else:
-                msg += " (import raised %s)" % (_imp,)
+                msg = "%s (import raised %s)" % (msg, _imp,)
         if _ver:
-            if not msg:
+            if not msg or not str(msg):
                 msg = "The %s module %s" % (self.__name__, _ver)
             else:
-                msg += " (%s)" % (_ver,)
+                msg = "%s (%s)" % (msg, _ver,)
         return msg
 
     def log_import_warning(self, logger='pyomo', msg=None):
@@ -320,8 +321,9 @@ def attempt_import(name, error_message=None, only_catch_importerror=None,
        >>> try:
        ...     import numpy
        ...     numpy_available = True
-       ... except ImportError:
-       ...     numpy = ModuleUnavailable('numpy', 'Numpy is not available')
+       ... except ImportError as e:
+       ...     numpy = ModuleUnavailable('numpy', 'Numpy is not available',
+       ...                               '', str(e))
        ...     numpy_available = False
 
     The import can be "deferred" until the first time the code either
@@ -583,11 +585,26 @@ def _finalize_matplotlib(module, available):
         module.use('Agg')
     import matplotlib.pyplot
 
+def _finalize_numpy(np, available):
+    if not available:
+        return
+    numeric_types.RegisterBooleanType(np.bool_)
+    for t in (np.int_, np.intc, np.intp,
+              np.int8, np.int16, np.int32, np.int64,
+              np.uint8, np.uint16, np.uint32, np.uint64):
+        numeric_types.RegisterIntegerType(t)
+        numeric_types.RegisterBooleanType(t)
+    for t in (np.float_, np.float16, np.float32, np.float64, np.ndarray):
+        numeric_types.RegisterNumericType(t)
+        numeric_types.RegisterBooleanType(t)
 
-yaml, yaml_available = attempt_import('yaml', callback=_finalize_yaml)
+
+yaml, yaml_available = attempt_import(
+    'yaml', callback=_finalize_yaml)
 pympler, pympler_available = attempt_import(
     'pympler', callback=_finalize_pympler)
-numpy, numpy_available = attempt_import('numpy')
+numpy, numpy_available = attempt_import(
+    'numpy', callback=_finalize_numpy)
 scipy, scipy_available = attempt_import(
     'scipy', callback=_finalize_scipy,
     deferred_submodules=['stats', 'sparse', 'spatial', 'integrate'])
